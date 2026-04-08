@@ -1,0 +1,39 @@
+spring:
+    application:
+        name: auth-service
+    
+    datasource:
+        url: jdbc:postgresql://localhost:5432/auth-db
+        username: larryck
+        password: ${DB_PASSWORD:changeme}
+        driver-class-name: org.postgresql.Driver
+    
+
+    jpa:
+        hibernate:
+            ddl-auto: validate
+        properties:
+            hibernate:
+            dialect: org.hibernate.dialect.PostgreSQLDialect
+            format_sql: true
+        show-sql: true
+    
+    flyway:
+        enabled: true
+        locations: claspath:db/migration
+        baseline-on-migrate: true
+    
+
+jwt:
+  secret: ${JWT_SECRET:your-256-bit-secret-key-here-min-32-chars-long}
+  access-token:
+    expiration: 900000  # 15 minutes in milliseconds
+  refresh-token:
+    expiration: 604800000  # 7 days in milliseconds
+
+server:
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        secure: false
