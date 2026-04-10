@@ -30,9 +30,7 @@ CREATE TABLE refresh_tokens (
     device_info VARCHAR(255),
     CONSTRAINT valid_token CHECK (expires_at > created_at)
 );
-CREATE INDEX idx_active_tokens ON refresh_tokens(user_id)
-WHERE revoked_at IS NULL return revokedAt == null &&
-    AND expires_at > NOW();
+CREATE INDEX idx_active_tokens ON refresh_tokens(user_id) WHERE revoked_at IS NULL;
 CREATE TABLE password_reset_tokens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
