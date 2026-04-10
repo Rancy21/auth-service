@@ -32,6 +32,9 @@ public class UserRole {
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
 
+    @Column(name = "role", insertable = false, updatable = false)
+    private String role;
+
     @Embeddable
     @Getter
     @Setter
