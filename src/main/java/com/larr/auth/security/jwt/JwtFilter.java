@@ -8,7 +8,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.larr.auth.exception.TokenExpiredException;
-
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,7 +17,13 @@ import lombok.RequiredArgsConstructor;
 @Component
 @RequiredArgsConstructor
 public class JwtFilter extends OncePerRequestFilter {
-    private final JwtUtlis jwtUtlis;
+    private final JwtUtils jwtUtils;
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
+        return path.equals("/api/v1/auth/register") || path.equals("/api/v1/auth/login");
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -28,12 +33,13 @@ public class JwtFilter extends OncePerRequestFilter {
 
         if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             try {
-                Authentication auth = jwtUtlis.getAuthentication(token);
+                Authentication auth = jwtUtils.getAuthentication(token);
                 SecurityContextHolder.getContext().setAuthentication(auth);
             } catch (TokenExpiredException e) {
                 request.setAttribute("tokenExpired", true);
             } catch (Exception e) {
-                // TODO: handle exception
+                request.setAttribute("unexpectedError", e.getClass().getName());
+                request.setAttribute("unexpectedErrorMessage", e.getMessage());
             }
 
         }

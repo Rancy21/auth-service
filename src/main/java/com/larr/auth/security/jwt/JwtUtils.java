@@ -37,19 +37,19 @@ import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
-public class JwtUtlis {
+public class JwtUtils {
     private final JwtProperties jwtProperties;
     private final RefreshTokenRepository refreshTokenRepository;
 
     private SecretKey getSigningKey() {
-        byte[] keyBytes = jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8);
+        byte[] keyBytes = jwtProperties.secret().getBytes(StandardCharsets.UTF_8);
 
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
     public String generateAccessToken(User user) {
         Instant now = Instant.now();
-        Instant expiry = Instant.now().plusMillis(jwtProperties.getAccessTokenExpiration());
+        Instant expiry = Instant.now().plusMillis(jwtProperties.accessToken().expiration());
 
         Map<String, Object> claims = new HashMap<>();
         claims.put("sub", user.getId().toString());
@@ -76,10 +76,14 @@ public class JwtUtlis {
 
         @SuppressWarnings("unchecked")
         List<String> roles = claims.get("roles", List.class);
+        if (roles == null) {
+            roles = List.of();
+        }
         Collection<? extends GrantedAuthority> authorities = roles.stream().map(SimpleGrantedAuthority::new)
                 .toList();
 
-        UserPrincipal principal = new UserPrincipal(UUID.fromString(claims.getId()), token);
+        String email = claims.get("email", String.class);
+        UserPrincipal principal = new UserPrincipal(UUID.fromString(claims.getSubject()), email);
 
         return new UsernamePasswordAuthenticationToken(principal, null, authorities);
 
@@ -98,7 +102,7 @@ public class JwtUtlis {
         String tokenHash = hashToken(rawToken);
 
         RefreshToken tokenEntity = RefreshToken.builder().user(user)
-                .tokenHash(tokenHash).expiresAt(Instant.now().plusMillis(jwtProperties.getRefreshTokenExpiration()))
+                .tokenHash(tokenHash).expiresAt(Instant.now().plusMillis(jwtProperties.refreshToken().expiration()))
                 .build();
 
         refreshTokenRepository.save(tokenEntity);
