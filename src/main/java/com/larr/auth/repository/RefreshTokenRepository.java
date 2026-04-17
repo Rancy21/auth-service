@@ -3,6 +3,7 @@ package com.larr.auth.repository;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
 
 import com.larr.auth.model.RefreshToken;
 import com.larr.auth.model.User;
@@ -11,6 +12,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.time.Instant;
 
+@Repository
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID> {
     Optional<RefreshToken> findByTokenHash(String tokenHash);
 
