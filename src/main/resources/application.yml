@@ -24,6 +24,18 @@ spring:
         baseline-on-migrate: true
         repair: true
     
+    mail:
+        host: smtp.gmail.com
+        port: 587
+        username: ${MAIL_USERNAME}
+        password: ${MAIL_PASSWORD}
+        properties:
+            mail:
+                smtp:
+                    auth: true
+                    starttls:
+                        enable: true
+    
 
 jwt:
   secret: ${JWT_SECRET:your-256-bit-secret-key-here-min-32-chars-long}
@@ -38,3 +50,9 @@ server:
       cookie:
         http-only: true
         secure: false
+
+app:
+    base-url: http://localhost:8080
+    mail:
+        from: noreply@authservice.com
+    frontend-url: http://localhost:8080
