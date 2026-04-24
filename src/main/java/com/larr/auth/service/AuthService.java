@@ -27,6 +27,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final JwtProperties jwtProperties;
+    private final EmailVerificationService emailVerificationService;
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
@@ -45,6 +46,9 @@ public class AuthService {
         UserRole role = new UserRole();
         role.setId(new UserRole.UserRoleId(savedUser.getId(), "USER"));
         savedUser.addRole(role);
+
+        // Send verification email
+        emailVerificationService.sendVerificationToken(savedUser);
 
         return new RegisterResponse("Registration successful. Please check your email to verify your account",
                 savedUser.getEmail());
