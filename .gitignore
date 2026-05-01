@@ -35,3 +35,4 @@ build/
 AGENTS.md
 Plan.md
 To-Do.md
+.env.docker
