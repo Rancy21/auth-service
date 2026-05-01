@@ -25,6 +25,7 @@ import com.larr.auth.security.jwt.JwtAccessDeniedHandler;
 import com.larr.auth.security.jwt.JwtAuthenticationEntryPoint;
 import com.larr.auth.security.jwt.JwtFilter;
 import com.larr.auth.security.jwt.JwtProperties;
+import com.larr.auth.service.CustomOAuth2UserService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -37,6 +38,9 @@ public class SecurityConfig {
     private final JwtFilter jwtFilter;
     private final JwtAuthenticationEntryPoint entryPoint;
     private final JwtAccessDeniedHandler accessDeniedHandler;
+    private final CustomOAuth2UserService customOAuth2UserService;
+    private final OAuthAuthenticationSuccessHandler successHandler;
+    private final RateLimitingFilter rateLimitingFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -78,17 +82,24 @@ public class SecurityConfig {
                 .exceptionHandling(exception -> exception.accessDeniedHandler(accessDeniedHandler)
                         .authenticationEntryPoint(entryPoint))
 
+                // OAuth2 configuration
+                .oauth2Login(
+                        oauth2 -> oauth2.userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
+                                .successHandler(successHandler))
+
                 // Authorization rules
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints
                         .requestMatchers("/api/v1/auth/register", "/api/v1/auth/**").permitAll()
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
 
                         // All other request need authentication
                         .anyRequest().authenticated())
 
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(rateLimitingFilter, jwtFilter.getClass());
 
         return http.build();
     }
