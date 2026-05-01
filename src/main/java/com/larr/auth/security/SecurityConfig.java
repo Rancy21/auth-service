@@ -1,12 +1,19 @@
 package com.larr.auth.security;
 
+import com.larr.auth.security.jwt.JwtAccessDeniedHandler;
+import com.larr.auth.security.jwt.JwtAuthenticationEntryPoint;
+import com.larr.auth.security.jwt.JwtFilter;
+import com.larr.auth.security.jwt.JwtProperties;
+import com.larr.auth.service.CustomOAuth2UserService;
 import java.util.List;
-
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -21,20 +28,13 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import com.larr.auth.security.jwt.JwtAccessDeniedHandler;
-import com.larr.auth.security.jwt.JwtAuthenticationEntryPoint;
-import com.larr.auth.security.jwt.JwtFilter;
-import com.larr.auth.security.jwt.JwtProperties;
-import com.larr.auth.service.CustomOAuth2UserService;
-
-import lombok.RequiredArgsConstructor;
-
 @Configuration
 @RequiredArgsConstructor
 @EnableMethodSecurity(prePostEnabled = true)
 @EnableWebSecurity
 @EnableConfigurationProperties(JwtProperties.class)
 public class SecurityConfig {
+
     private final JwtFilter jwtFilter;
     private final JwtAuthenticationEntryPoint entryPoint;
     private final JwtAccessDeniedHandler accessDeniedHandler;
@@ -42,13 +42,18 @@ public class SecurityConfig {
     private final OAuthAuthenticationSuccessHandler successHandler;
     private final RateLimitingFilter rateLimitingFilter;
 
+    @Value("${server.ssl.enabled:false}")
+    private boolean sslEnabled;
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) {
+    public AuthenticationManager authenticationManager(
+        AuthenticationConfiguration config
+    ) {
         return config.getAuthenticationManager();
     }
 
@@ -56,12 +61,22 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:8080"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedOrigins(
+            List.of(
+                "http://localhost:3000",
+                "http://localhost:8080",
+                "http://localhost:5173",
+                "https://localhost:5173"
+            )
+        );
+        configuration.setAllowedMethods(
+            List.of("GET", "POST", "PUT", "DELETE", "OPTIONS")
+        );
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source =
+            new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
@@ -69,39 +84,70 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // Disable csrf(using JWT instead of sessions)
-                .csrf(AbstractHttpConfigurer::disable)
+            // Disable csrf(using JWT instead of sessions)
+            .csrf(AbstractHttpConfigurer::disable)
+            // Enable CORS
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            // Stateless session (no server-side sessions)
+            .sessionManagement(session ->
+                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
+            // Exception Handling
+            .exceptionHandling(exception ->
+                exception
+                    .accessDeniedHandler(accessDeniedHandler)
+                    .authenticationEntryPoint(entryPoint)
+            )
+            // OAuth2 configuration
+            .oauth2Login(oauth2 ->
+                oauth2
+                    .userInfoEndpoint(userInfo ->
+                        userInfo.userService(customOAuth2UserService)
+                    )
+                    .successHandler(successHandler)
+            )
+            // Authorization rules
+            .authorizeHttpRequests(auth ->
+                auth
+                    // Public endpoints
+                    .requestMatchers("/api/v1/auth/register", "/api/v1/auth/**")
+                    .permitAll()
+                    .requestMatchers(
+                        "/swagger-ui/**",
+                        "/swagger-ui.html",
+                        "/v3/api-docs/**"
+                    )
+                    .permitAll()
+                    .requestMatchers(HttpMethod.OPTIONS, "/**")
+                    .permitAll()
+                    .requestMatchers("/actuator/**")
+                    .permitAll()
+                    // All other request need authentication
+                    .anyRequest()
+                    .authenticated()
+            )
+            .addFilterBefore(
+                jwtFilter,
+                UsernamePasswordAuthenticationFilter.class
+            )
+            .addFilterBefore(rateLimitingFilter, jwtFilter.getClass())
+            .headers(headers ->
+                headers.httpStrictTransportSecurity(
+                    hsts ->
+                        hsts.includeSubDomains(true).maxAgeInSeconds(31536000) // 1 year
+                )
+            );
 
-                // Enable CORS
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-
-                // Stateless session (no server-side sessions)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-                // Exception Handling
-                .exceptionHandling(exception -> exception.accessDeniedHandler(accessDeniedHandler)
-                        .authenticationEntryPoint(entryPoint))
-
-                // OAuth2 configuration
-                .oauth2Login(
-                        oauth2 -> oauth2.userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
-                                .successHandler(successHandler))
-
-                // Authorization rules
-                .authorizeHttpRequests(auth -> auth
-                        // Public endpoints
-                        .requestMatchers("/api/v1/auth/register", "/api/v1/auth/**").permitAll()
-                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/actuator/**").permitAll()
-
-                        // All other request need authentication
-                        .anyRequest().authenticated())
-
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(rateLimitingFilter, jwtFilter.getClass());
+        http = configureHttpRedirect(http);
 
         return http.build();
     }
 
+    private HttpSecurity configureHttpRedirect(HttpSecurity http)
+        throws Exception {
+        if (sslEnabled) {
+            return http.redirectToHttps(Customizer.withDefaults());
+        }
+        return http;
+    }
 }
