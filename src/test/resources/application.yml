@@ -1,0 +1,40 @@
+   spring:
+        jpa:
+            hibernate:
+                ddl-auto: validate
+                show-sql: true
+        mail:
+            host: localhost
+            port: 3025
+        
+        flyway:
+            enabled: true
+            locations: classpath:db/test-migration
+            baseline-on-migrate: true
+            repair: true
+        
+        security:
+            oauth2:
+                client:
+                    registration:
+                            google:
+                                client-id: test-client-id
+                                client-secret: test-client-secret
+                                scope: email,profile
+                            github:
+                                client-id: test-client-id
+                                client-secret: test-client-secret
+                                scope: read:user,user:email
+    
+
+   # Disable email during tests
+   app:
+        email:
+            enabled: false
+
+   jwt:
+        secret: my-test-secret-key-for-integration-tests-only
+        access-token:
+             expiration: 900000
+        refresh-token:
+            expiration: 604800000
