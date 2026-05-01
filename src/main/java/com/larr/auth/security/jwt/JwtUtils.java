@@ -135,6 +135,19 @@ public class JwtUtils {
 
     }
 
+    @Transactional
+    public void revokeRefreshToken(String rawToken) {
+        String tokenHash = hashToken(rawToken);
+
+        RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(tokenHash)
+                .orElseThrow(() -> new InvalidTokenException("Invalid Refresh Token"));
+
+        refreshToken.revoke();
+
+        refreshTokenRepository.save(refreshToken);
+
+    }
+
     public record TokenPair(String accessToken, String refreshToken) {
     }
 

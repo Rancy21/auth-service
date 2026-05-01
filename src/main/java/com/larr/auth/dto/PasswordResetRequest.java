@@ -1,10 +1,13 @@
 package com.larr.auth.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.validation.annotation.Validated;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
 @Validated
-public record PasswordResetRequest(@Email @NotBlank String email) {
+@Schema(description = "Password reset request")
+public record PasswordResetRequest(
+        @Schema(description = "Email to send reset link to", example = "user@examplemail.com") @Email @NotBlank String email) {
 }
